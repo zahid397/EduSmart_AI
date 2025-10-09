@@ -1,0 +1,8 @@
+gradio
+openai
+requests
+PyMuPDF
+gtts
+google-api-python-client
+speechrecognition
+python-dotenv
