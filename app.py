@@ -67,14 +67,38 @@ if "chat_history" not in st.session_state:
 def smart_reply(prompt):
     sys = (
         "You are EduSmart AI Pro — a bilingual smart tutor (Bangla/English). "
-        "Give accurate, helpful, factual answers using Google Grounding. "
+        "Give factual, clear, educational answers using Google Grounding. "
         "If you don’t know, say so clearly."
     )
+
     try:
+        # Gemini 2.5 Flash response
         r = model.generate_content(
             sys + "\n\nUser: " + prompt,
             tools=[{"name": "google_search"}]
         )
+
+        # 🧠 Step 1: Normal text response
+        if hasattr(r, "text") and r.text:
+            return r.text.strip()
+
+        # 🧩 Step 2: Extract text from candidates safely
+        if hasattr(r, "candidates"):
+            for c in r.candidates:
+                if hasattr(c, "content") and hasattr(c.content, "parts"):
+                    for p in c.content.parts:
+                        if hasattr(p, "text") and p.text:
+                            return p.text.strip()
+
+        # ⚙️ Step 3: If it's a function_call or tool response
+        if hasattr(r, "function_call") or "function_call" in str(r):
+            return "⚙️ Gemini tried using a function call internally — please rephrase your question."
+
+        # 🪄 Step 4: Catch-all fallback
+        return "🤔 আমি নিশ্চিত নই, প্রশ্নটা একটু ভিন্নভাবে বলো।"
+
+    except Exception as e:
+        return f"⚠️ ত্রুটি: {e}"
 
         # ✅ Robust function-call safe parsing
         if hasattr(r, "text") and r.text:
