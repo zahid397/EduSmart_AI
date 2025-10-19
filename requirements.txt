@@ -1,5 +1,5 @@
 streamlit
 google-generativeai
 speechrecognition
-pyttsx3
+gtts
 fpdf
