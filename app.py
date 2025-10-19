@@ -5,7 +5,7 @@ from gtts import gTTS
 from fpdf import FPDF
 from datetime import datetime
 
-# ---------- API setup ----------
+# ---------- Gemini API Setup ----------
 api_key = st.sidebar.text_input("🔑 Gemini API Key", type="password", value=st.secrets.get("GOOGLE_API_KEY", ""))
 if api_key:
     genai.configure(api_key=api_key)
@@ -29,16 +29,14 @@ def play_welcome_voice():
     os.remove("welcome.mp3")
     st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
-# ---------- Page setup ----------
+# ---------- UI ----------
 st.set_page_config(page_title="EduSmart AI Pro", page_icon="💡", layout="centered")
 st.markdown("""
 <style>
 .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
 color:#f8fafc;font-family:'Poppins',sans-serif;}
-.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;
-border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
-.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;
-border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
 h1,h3{text-align:center;color:#38bdf8;}
 </style>
 """, unsafe_allow_html=True)
@@ -54,14 +52,20 @@ play_welcome_voice()
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ---------- Smart reply ----------
+# ---------- Smart Reply (final stable) ----------
 def smart_reply(prompt):
-    sys = ("You are EduSmart AI Pro — a bilingual tutor (Bangla/English). "
-           "Give clear, factual answers using web knowledge when needed.")
+    sys = (
+        "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). "
+        "Give factual, helpful answers using web grounding when needed."
+    )
     try:
         r = model.generate_content(sys + "\n\nUser: " + prompt, tools=[{"name": "google_search"}])
+
+        # ✅ Plain text
         if hasattr(r, "text") and r.text:
             return r.text.strip()
+
+        # ✅ Candidates safely
         if hasattr(r, "candidates"):
             for c in r.candidates:
                 if hasattr(c, "content") and hasattr(c.content, "parts"):
@@ -69,16 +73,19 @@ def smart_reply(prompt):
                         if hasattr(p, "text") and p.text:
                             return p.text.strip()
                         elif hasattr(p, "function_call"):
-                            return "⚙️ Gemini is processing a function call — try rephrasing."
-        return "🤔 আমি নিশ্চিত নই, প্রশ্নটা একটু ভিন্নভাবে বলো।"
-    except Exception as e:
-        return f"⚠️ ত্রুটি: {e}"
+                            return "⚙️ Gemini is processing a function call — please rephrase."
 
-# ---------- Chat ----------
+        return "🤔 আমি নিশ্চিত নই, প্রশ্নটা একটু ভিন্নভাবে বলো।"
+
+    except Exception as e:
+        return f"⚠️ সিস্টেম ত্রুটি ঘটেছে: {str(e)[:150]}"
+
+# ---------- Chat Display ----------
 for role, msg in st.session_state.chat_history[-10:]:
     css = "chat-bubble-user" if role == "user" else "chat-bubble-ai"
     st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
 
+# ---------- Chat Input ----------
 if user_input := st.chat_input("তোমার প্রশ্ন লিখো..."):
     st.session_state.chat_history.append(("user", user_input))
     with st.spinner("ভাবছি... 🤔"):
@@ -88,10 +95,11 @@ if user_input := st.chat_input("তোমার প্রশ্ন লিখো.
         speak(ans)
     st.rerun()
 
-# ---------- Save PDF ----------
+# ---------- PDF Export ----------
 if st.button("📄 Save Chat as PDF"):
     pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", size=12)
     pdf.cell(200,10,"EduSmart AI Pro Chat History",ln=True,align="C")
+    pdf.cell(200,10,f"Saved: {datetime.now()}",ln=True); pdf.ln(10)
     for r,m in st.session_state.chat_history:
         prefix = "👤 You:" if r=="user" else "🤖 AI:"
         pdf.multi_cell(0,8,f"{prefix} {m}")
