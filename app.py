@@ -18,17 +18,20 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 
 # ================== Voice Output ==================
 def speak(text):
-    """Google TTS for Streamlit (Bangla + English)"""
+    """Google TTS voice output"""
     tts = gTTS(text=text, lang="bn")
     tts.save("temp.mp3")
     with open("temp.mp3", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     os.remove("temp.mp3")
-    st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    st.markdown(
+        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
+        unsafe_allow_html=True
+    )
 
 # ================== Voice Input ==================
 def listen():
-    """Microphone to text"""
+    """Voice input to text"""
     r = sr.Recognizer()
     with sr.Microphone() as src:
         st.info("🎧 বলো, আমি শুনছি...")
@@ -44,12 +47,17 @@ st.markdown("""
 <style>
 .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
 color:#f8fafc;font-family:'Poppins',sans-serif;}
-.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
-.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;
+border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;
+border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
 h1,h3{text-align:center;color:#38bdf8;}
 </style>
 """, unsafe_allow_html=True)
 
+# Add Logo
+if os.path.exists("logo.png"):
+    st.image("logo.png", width=180)
 st.markdown("<h1>🏆 EduSmart AI Pro Ultimate 💡</h1>", unsafe_allow_html=True)
 st.markdown("<h3>Chat • Learn • Talk • Write — Powered by Gemini 2.5 Flash ⚡</h3>", unsafe_allow_html=True)
 
@@ -57,45 +65,53 @@ st.markdown("<h3>Chat • Learn • Talk • Write — Powered by Gemini 2.5 Fla
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ================== AI Reply Function ==================
+# ================== AI Smart Reply ==================
 def smart_reply(prompt):
-    sys = ("You are EduSmart AI Pro — a bilingual AI teacher (Bangla/English). "
-           "Give factual, clear, creative, educational answers using Google Grounding. "
-           "If you don’t know, say you can check online.")
+    sys = (
+        "You are EduSmart AI Pro — a bilingual smart tutor (Bangla/English). "
+        "Use Google Grounding to give factual, correct, clear answers. "
+        "Never invent information; if unsure, say you can check online."
+    )
     try:
-        r = model.generate_content(sys + "\n\nUser: " + prompt, tools=[{"name": "google_search"}])
+        r = model.generate_content(
+            sys + "\n\nUser: " + prompt,
+            tools=[{"name": "google_search"}]
+        )
+
+        # ✅ Robust function-call-safe response extraction
         if hasattr(r, "text") and r.text:
             return r.text.strip()
-        else:
-            try:
-                return r.candidates[0].content.parts[0].text.strip()
-            except:
-                return "⚠️ উত্তর প্রাপ্তিতে সমস্যা হয়েছে। আবার চেষ্টা করো।"
+        elif hasattr(r, "candidates"):
+            for c in r.candidates:
+                for p in getattr(c.content, "parts", []):
+                    if hasattr(p, "text"):
+                        return p.text.strip()
+        return "⚙️ Gemini used a function call internally — please try rephrasing your question."
     except Exception as e:
         return f"⚠️ ত্রুটি: {e}"
 
-# ================== Live Conversation Mode ==================
+# ================== Live Conversation ==================
 def live_conversation():
-    st.info("🎙️ লাইভ কনভারসেশন শুরু হয়েছে! (Ctrl+C দিলে বন্ধ হবে)")
+    st.info("🎙️ Live Conversation শুরু হয়েছে (Ctrl+C দিলে বন্ধ হবে)")
     while True:
         try:
-            voice_input = listen()
-            if not voice_input:
+            user_voice = listen()
+            if not user_voice:
                 continue
-            st.session_state.chat_history.append(("user", voice_input))
-            st.markdown(f"<div class='chat-bubble-user'>{voice_input}</div>", unsafe_allow_html=True)
-            reply = smart_reply(voice_input)
+            st.session_state.chat_history.append(("user", user_voice))
+            st.markdown(f"<div class='chat-bubble-user'>{user_voice}</div>", unsafe_allow_html=True)
+            reply = smart_reply(user_voice)
             st.session_state.chat_history.append(("ai", reply))
             st.markdown(f"<div class='chat-bubble-ai'>{reply}</div>", unsafe_allow_html=True)
             speak(reply)
         except KeyboardInterrupt:
-            st.warning("🛑 কনভারসেশন শেষ হয়েছে।")
+            st.warning("🛑 Conversation বন্ধ হয়েছে।")
             break
         except Exception as e:
             st.error(f"ত্রুটি: {e}")
             break
 
-# ================== Top Control Buttons ==================
+# ================== Top Buttons ==================
 col_clear, col_pdf, col_para, col_email, col_live = st.columns([1,1,1,1,1])
 with col_clear:
     if st.button("🧹 Clear"):
@@ -117,7 +133,7 @@ with col_pdf:
 with col_para:
     topic = st.text_input("✍️ Paragraph Topic")
     if st.button("Generate Paragraph"):
-        prompt = f"বিষয়: {topic}\nএকটি সুন্দর, প্রাঞ্জল ও গঠনমূলক বাংলা অনুচ্ছেদ লেখো।"
+        prompt = f"বিষয়: {topic}\nএকটি সুন্দর ও গঠনমূলক বাংলা অনুচ্ছেদ লেখো।"
         ans = model.generate_content(prompt).text.strip()
         st.markdown(f"### 📝 Paragraph on '{topic}'\n\n{ans}")
         speak(ans)
@@ -135,8 +151,8 @@ for r,m in st.session_state.chat_history[-10:]:
     css="chat-bubble-user" if r=="user" else "chat-bubble-ai"
     st.markdown(f"<div class='{css}'>{m}</div>",unsafe_allow_html=True)
 
-# ================== Text Chat Input ==================
-if user_input := st.chat_input("তোমার প্রশ্ন লিখো বা কিছু জিজ্ঞেস করো..."):
+# ================== Chat Input ==================
+if user_input := st.chat_input("তোমার প্রশ্ন লিখো বা কিছু বলো..."):
     st.session_state.chat_history.append(("user", user_input))
     with st.spinner("ভাবছি... 🤔"):
         ans = smart_reply(user_input)
