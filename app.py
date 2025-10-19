@@ -1,8 +1,14 @@
 import streamlit as st
 import json, random, csv, io
 from difflib import SequenceMatcher
-import language_tool_python  # Grammar check
 from openai import OpenAI  # Optional AI explanations
+
+# --- TRY IMPORT GRAMMAR TOOL (Optional) ---
+try:
+    import language_tool_python
+    tool = language_tool_python.LanguageTool('bn')
+except Exception:
+    tool = None
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -11,9 +17,17 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- CSS + META ---
+# --- LOGO (Safe Loader) ---
+try:
+    st.image("edusmart_ai_logo.png", width=180)
+except Exception:
+    st.warning("⚠️ Logo not found, using fallback header.")
+    st.markdown("<h2 style='text-align:center; color:#2563EB;'>💡 EduSmart AI</h2>", unsafe_allow_html=True)
+
+# --- META TAG ---
 st.markdown("<meta name='viewport' content='width=device-width, initial-scale=1.0'>", unsafe_allow_html=True)
 
+# --- CSS ---
 def get_css(theme):
     if theme == "dark":
         return """
@@ -35,11 +49,6 @@ def get_css(theme):
         """
 
 # --- HEADER ---
-try:
-    st.image("edusmart_ai_logo.png", width=180)
-except FileNotFoundError:
-    st.markdown("### 💡 EduSmart AI")
-
 st.markdown("<h1 style='text-align:center; color:#2563EB;'>EduSmart AI - বাংলা ব্যাকরণ সহায়ক</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:gray;'>Learn. Interact. Innovate.</p>", unsafe_allow_html=True)
 st.write("---")
@@ -65,13 +74,6 @@ def fuzzy_match(q, data, threshold=0.6):
         return best
     return None
 
-# Grammar Tool with Try-Except (if not installed)
-try:
-    tool = language_tool_python.LanguageTool('bn')
-except:
-    tool = None
-    st.sidebar.warning("⚠️ LanguageTool not available. Install: pip install language-tool-python")
-
 # --- MAIN ---
 if uploaded_file:
     data = load_data(uploaded_file)
@@ -81,11 +83,11 @@ if uploaded_file:
         st.session_state.score = 0
         st.session_state.badges = []
         st.session_state.scores_history = []
-        st.session_state.user_answers = []  # New: Track user answers for CSV
+        st.session_state.user_answers = []
 
     tab1, tab2, tab3, tab4 = st.tabs(["💬 Chat", "🧠 Quiz", "📖 Browse", "📊 Progress"])
 
-    # 💬 Chat
+    # 💬 CHAT TAB
     with tab1:
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -94,49 +96,48 @@ if uploaded_file:
             audio = st.audio_input("🎤 Voice Input")
             if audio:
                 st.audio(audio)
-                st.info("🔊 Voice received (transcription integration possible)")
+                st.info("🔊 Voice received (transcription possible).")
 
         if query:
-            # Grammar feedback with try-except
+            # Grammar Checker
             if tool:
-                errors = tool.check(query)
-                if errors:
-                    st.warning(f"📝 Grammar Tip: {errors[0].message}")
-            else:
-                st.info("📝 Grammar check available with LanguageTool install.")
-
-            match = next((x for x in data if query.lower() in x["question"].lower()), fuzzy_match(query, data))
+                errs = tool.check(query)
+                if errs:
+                    st.warning(f"📝 Grammar Tip: {errs[0].message}")
             st.markdown(f"<div class='user-bubble'><b>তুমি:</b> {query}</div>", unsafe_allow_html=True)
+            match = next((x for x in data if query.lower() in x["question"].lower()), fuzzy_match(query, data))
             if match:
                 ans = match["answer"]
                 if use_ai and openai_key:
-                    client = OpenAI(api_key=openai_key)
-                    prompt = f"বাংলায় সহজভাবে ব্যাখ্যা করো: {match['question']} → {ans}। উদাহরণসহ বোলো।"
-                    res = client.chat.completions.create(model="gpt-4o-mini",
-                        messages=[{"role": "user", "content": prompt}])
-                    ans = res.choices[0].message.content
+                    try:
+                        client = OpenAI(api_key=openai_key)
+                        prompt = f"বাংলায় সহজভাবে ব্যাখ্যা করো: {match['question']} → {ans}। উদাহরণসহ বোলো।"
+                        res = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
+                        ans = res.choices[0].message.content
+                    except Exception:
+                        st.warning("⚠️ AI explanation unavailable, showing static answer.")
                 st.markdown(f"<div class='bot-bubble'><b>EduSmart:</b> {ans}</div>", unsafe_allow_html=True)
             else:
                 st.markdown("<div class='bot-bubble'>দুঃখিত 😕 উত্তর পাইনি।</div>", unsafe_allow_html=True)
 
-    # 🧠 Quiz
+    # 🧠 QUIZ TAB
     with tab2:
         if st.button("🚀 Start New Quiz"):
             st.session_state.quiz = random.sample(data, 5)
             st.session_state.index = 0
             st.session_state.score = 0
-            st.session_state.user_answers = []  # Reset user answers
+            st.session_state.user_answers = []
 
         if "quiz" in st.session_state:
             idx = st.session_state.index
             if idx < 5:
                 q = st.session_state.quiz[idx]
-                st.markdown(f"**প্রশ্ন {idx + 1}/5:** {q['question']}")
+                st.markdown(f"**প্রশ্ন {idx+1}/5:** {q['question']}")
                 options = [q["answer"][:20] + " (সঠিক)", "ভুল অপশন ১", "ভুল অপশন ২"]
                 random.shuffle(options)
                 ans = st.radio("উত্তর:", options, key=f"q_{idx}")
                 if st.button("Submit", key=f"s_{idx}"):
-                    st.session_state.user_answers.append(ans)  # Track user choice
+                    st.session_state.user_answers.append(ans)
                     if "(সঠিক)" in ans:
                         st.session_state.score += 1
                         st.success("✅ সঠিক উত্তর!")
@@ -151,28 +152,27 @@ if uploaded_file:
                 if s >= 4:
                     st.balloons()
                     st.session_state.badges.append("🏅 Grammar Master")
-                
-                # Enhanced CSV with User Answers
+
                 csv_buf = io.StringIO()
                 writer = csv.writer(csv_buf)
                 writer.writerow(["Question", "Your Answer", "Correct Answer"])
                 for i, qa in enumerate(st.session_state.quiz):
                     writer.writerow([qa["question"], st.session_state.user_answers[i], qa["answer"]])
-                st.download_button("📥 Download Results", csv_buf.getvalue().encode('utf-8'), "EduSmart_Score.csv", "text/csv")
-                
-                # New: Try Again Button
+                st.download_button("📥 Download Results", csv_buf.getvalue().encode('utf-8'),
+                                   "EduSmart_Score.csv", "text/csv")
+
                 if st.button("🔄 Try Again"):
                     del st.session_state.quiz
                     st.rerun()
 
-    # 📖 Browse
+    # 📖 BROWSE TAB
     with tab3:
-        if st.checkbox("Show All Questions"):
+        if st.checkbox("📚 Show All Questions"):
             for i, qa in enumerate(data, 1):
                 with st.expander(f"{i}. {qa['question'][:60]}..."):
                     st.markdown(f"**উত্তর:** {qa['answer']}")
 
-    # 📊 Progress Dashboard
+    # 📊 PROGRESS TAB
     with tab4:
         st.subheader("📊 তোমার অগ্রগতি")
         st.metric("Total Quizzes", len(st.session_state.scores_history))
@@ -192,6 +192,7 @@ st.markdown("""
 ---
 <p style='text-align:center; color:gray;'>
 🚀 Developed by <b>Zahid Hasan</b> | Powered by <b>EduSmart AI</b><br>
-🌍 <b>Innovation World Cup Bangladesh 2026 - National Finalist 🇧🇩</b> | Register: <a href="https://forms.gle/nh6WBfH4nd6GMCC2A" style="color:#2563EB;">Deadline: 20 Oct</a>
+🌍 <b>Innovation World Cup Bangladesh 2026 - National Finalist 🇧🇩</b><br>
+<a href="https://forms.gle/nh6WBfH4nd6GMCC2A" style="color:#2563EB;">Register (Deadline: 20 Oct 2025)</a>
 </p>
 """, unsafe_allow_html=True)
