@@ -36,9 +36,12 @@ st.markdown("""
 <style>
 .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
 color:#f8fafc;font-family:'Poppins',sans-serif;}
-.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
-.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;
+border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;
+border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
 h1,h3{text-align:center;color:#38bdf8;}
+button[kind="secondary"] {background-color:#2563eb !important; color:white !important; border-radius:10px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,33 +55,32 @@ play_welcome_voice()
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ---------- Smart Reply (Crash-Proof Final Version) ----------
+# ---------- Smart Reply ----------
 def smart_reply(prompt):
     try:
-        sys = "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). Answer factually with clarity."
-        response = model.generate_content(sys + "\n\nUser: " + prompt, tools=[{"name": "google_search"}])
+        sys = "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). Give factual, educational answers clearly."
+        r = model.generate_content(sys + "\n\nUser: " + prompt)
 
-        # ✅ If plain text exists
-        if hasattr(response, "text") and response.text:
-            return response.text.strip()
+        if hasattr(r, "text") and r.text:
+            return r.text.strip()
 
-        # ✅ Try parsing candidates safely
-        if hasattr(response, "candidates"):
+        if hasattr(r, "candidates"):
             texts = []
-            for c in response.candidates:
+            for c in r.candidates:
                 if hasattr(c, "content") and hasattr(c.content, "parts"):
                     for p in c.content.parts:
                         if hasattr(p, "text") and p.text:
                             texts.append(p.text.strip())
                         elif hasattr(p, "function_call"):
-                            texts.append("🔧 Function call detected: " + json.dumps(p.function_call, ensure_ascii=False))
+                            texts.append("⚙️ Gemini used an internal function. Please rephrase.")
             if texts:
                 return "\n\n".join(texts)
 
-        # ✅ If still nothing, stringify everything
-        return json.dumps(response.to_dict() if hasattr(response, "to_dict") else str(response), ensure_ascii=False)[:1000]
+        return str(r)[:800]
 
     except Exception as e:
         return f"⚠️ সিস্টেম ত্রুটি ঘটেছে: {e}"
 
-# ----------
+# ---------- Chat Display ----------
+for role, msg in st.session_state.chat_history[-10:]:
+    css = "chat-bubble-user" if role == "user
