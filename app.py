@@ -1,182 +1,213 @@
 import os
-import requests
-import gradio as gr
-import tempfile
-import fitz
+import json
+import math
 import socket
-import speech_recognition as sr
+import asyncio
+import httpx
+import tempfile
+import gradio as gr
 from gtts import gTTS
-from openai import OpenAI
-from googleapiclient.discovery import build
+import speech_recognition as sr
+from sympy import sympify, sqrt, pi
+import google.generativeai as genai
 
-# === 🔑 API KEYS ===
-OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-HF_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
-GOOGLE_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_CX = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+# =============================
+# 🔑 API Keys
+# =============================
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+HF_KEY = os.getenv("HUGGINGFACE_API_TOKEN")
 
-client = OpenAI(api_key=OPENAI_KEY)
-CACHE = {}
+# =============================
+# ⚙️ Configuration
+# =============================
+GEMINI_MODEL = "gemini-2.5-flash"
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-xxl"
+SYS_PROMPT = (
+    "You are EduSmart AI Tutor. "
+    "Answer clearly in Bangla and English with one example. "
+    "Keep tone helpful, polite, and educational."
+)
 
-# === 📘 BOOK LINKS (Google Drive ids) ===
-BOOKS = {
-    "Bangla": {"id": "1Lz44Rw9btpgvBONTWYtDiagkkBwj_QNw"},
-    "English": {"id": "1WS_5YsT7e6vTvv3e1VFEixnOGM1FaTM3"},
-    "Math": {"id": "12E6qEgPnF9AwYDwRg24IYwfr8U82MnE5"}
-}
-
+# =============================
+# 🌐 Internet Check
+# =============================
 def is_online():
     try:
         socket.create_connection(("8.8.8.8", 53), timeout=3)
         return True
-    except OSError:
+    except:
         return False
 
-def read_book(subject, max_chars=100000):
-    """Read PDF from local cache or download once from Drive."""
+# =============================
+# 🎤 Speech → Text
+# =============================
+async def stt(audio_path):
+    if not audio_path:
+        return ""
+    if not is_online():
+        return "(Offline: Voice input unavailable. Use text instead.)"
     try:
-        file_path = f"{subject.lower()}.pdf"
-        if not os.path.exists(file_path):
-            link = f"https://drive.google.com/uc?export=download&id={BOOKS[subject]['id']}"
-            pdf_data = requests.get(link).content
-            with open(file_path, "wb") as f:
-                f.write(pdf_data)
-        text = []
-        with fitz.open(file_path) as doc:
-            for p in doc:
-                text.append(p.get_text())
-                if sum(len(t) for t in text) > max_chars:
-                    break
-        return "".join(text)
-    except Exception as e:
-        return f"(Offline Error: {e})"
+        loop = asyncio.get_running_loop()
 
-def speak(text, gender="female", filename="voice.mp3"):
+        def _recognize(path):
+            r = sr.Recognizer()
+            with sr.AudioFile(path) as src:
+                data = r.record(src)
+            return r.recognize_google(data, language="bn-BD")
+
+        return await loop.run_in_executor(None, _recognize, audio_path)
+    except Exception as e:
+        return f"(STT Error: {str(e)})"
+
+# =============================
+# 🔊 Text → Speech
+# =============================
+async def tts(text):
+    if not text:
+        return None
+    lang = "bn" if any('\u0980' <= c <= '\u09FF' for c in text) else "en"
     try:
-        prefix = "Male voice: " if gender == "male" else ""
-        lang = "bn" if any('\u0980' <= c <= '\u09FF' for c in text) else "en"
-        gTTS(text=prefix + text, lang=lang).save(filename)
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as fp:
+            filename = fp.name
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, gTTS(text=text, lang=lang).save, filename)
         return filename
-    except Exception:
+    except Exception as e:
+        print(f"TTS Error: {e}")
         return None
 
-def voice_to_text(audio):
+# =============================
+# 🧮 Safe Calculator
+# =============================
+def calc(expr):
+    expr = expr.strip()
+    if not expr:
+        return ""
+    expr = expr.replace("^", "**").replace("√", "sqrt").replace("π", "pi")
     try:
-        r = sr.Recognizer()
-        with sr.AudioFile(audio) as src:
-            data = r.record(src)
-        return r.recognize_google(data, language="bn-BD")
-    except Exception:
+        result = sympify(expr).evalf()
+        return f"🧮 Answer = {result}"
+    except:
         return ""
 
-def google_search(query):
+# =============================
+# 📘 Offline QnA Loader
+# =============================
+def load_qna():
+    folder = "json_data"
+    qna = []
+    if not os.path.exists(folder):
+        print("⚠️ 'json_data' folder not found — Offline mode disabled.")
+        return []
+    for f in os.listdir(folder):
+        if f.endswith(".json"):
+            try:
+                with open(os.path.join(folder, f), encoding="utf-8") as file:
+                    qna.extend(json.load(file))
+            except Exception as e:
+                print(f"JSON Load Error ({f}): {e}")
+    return qna
+
+QNA = load_qna()
+
+def search_local(q):
+    q = q.lower().strip()
+    for qa in QNA:
+        if qa["question"].lower() in q:
+            return qa["answer"]
+    return ""
+
+# =============================
+# ⚡ Gemini API (Async)
+# =============================
+async def gemini_answer(prompt):
+    if not GEMINI_KEY:
+        return ""
     try:
-        svc = build("customsearch", "v1", developerKey=GOOGLE_KEY)
-        res = svc.cse().list(q=query, cx=GOOGLE_CX, num=2).execute()
-        out = []
-        for item in res.get("items", []):
-            out.append(f"📰 **{item['title']}**\n{item['snippet']}\n🔗 {item['link']}")
-        return "\n\n".join(out)
+        genai.configure(api_key=GEMINI_KEY)
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = await asyncio.to_thread(model.generate_content, prompt)
+        return getattr(response, "text", "").strip()
     except Exception as e:
-        return f"🌐 Google Error: {e}"
+        return f"(Gemini Error: {str(e)})"
 
-def hf_fallback(query):
+# =============================
+# 🤗 Hugging Face API (Async)
+# =============================
+async def hf_answer(prompt):
+    if not HF_KEY:
+        return ""
     try:
-        url = "https://api-inference.huggingface.co/models/google/flan-t5-xxl"
-        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-        data = {"inputs": f"Answer clearly in Bangla and English: {query}"}
-        r = requests.post(url, headers=headers, json=data, timeout=40)
-        if r.status_code == 200:
-            j = r.json()
-            if isinstance(j, list) and j:
-                return j[0].get("generated_text", "")
+        headers = {"Authorization": f"Bearer {HF_KEY}"}
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(HF_MODEL_URL, headers=headers, json={"inputs": prompt})
+        if response.status_code == 200:
+            data = response.json()
+            return data[0].get("generated_text", "").strip()
         return ""
-    except Exception:
-        return ""
+    except Exception as e:
+        return f"(HF Error: {str(e)})"
 
-def smart_answer(question, subject, audio, speak_enable, gender):
-    if not question and audio:
-        question = voice_to_text(audio)
-    if not question:
-        return "⚠️ Please type or say a question.", None
+# =============================
+# 🧠 Main Answer Logic
+# =============================
+async def answer(history, query, audio=None):
+    if not query and audio:
+        query = await stt(audio)
+    if not query:
+        return history + [[None, "⚠️ Please type or speak your question."]], ""
 
-    cache_key = f"{subject}_{question}"
-    if cache_key in CACHE:
-        ans = CACHE[cache_key]
-        return f"📦 Cached:\n{ans}", (speak(ans, gender) if speak_enable else None)
+    if query.startswith("("):  # Error from STT
+        return history + [[None, query]], query
 
-    pdf_text = read_book(subject)
-    online = is_online()
+    calc_res = calc(query)
+    if calc_res:
+        return history + [[query, calc_res]], calc_res
 
-    if online:
-        # Try OpenAI
-        try:
-            res = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are EduSmart AI, a bilingual tutor."},
-                    {"role": "user", "content": f"Subject: {subject}\nContext:\n{pdf_text[:25000]}\n\nQuestion: {question}"}
-                ],
-                timeout=60
-            )
-            ans = res.choices[0].message.content
-            CACHE[cache_key] = ans
-            return "✅ (AI Answer)\n" + ans, (speak(ans, gender) if speak_enable else None)
-        except Exception:
-            pass
-        # Hugging Face fallback
-        hf_ans = hf_fallback(question)
-        if hf_ans:
-            return "✅ (HF Fallback)\n" + hf_ans, (speak(hf_ans, gender) if speak_enable else None)
-        # Google fallback
-        g_ans = google_search(question)
-        return "🌐 (Google Search)\n" + g_ans, None
+    local = search_local(query)
+    if local:
+        res = f"📚 (Offline)\n{local}"
+        return history + [[query, res]], local
 
+    if is_online():
+        prompt = f"{SYS_PROMPT}\nUser: {query}"
+        ai = await gemini_answer(prompt) or await hf_answer(prompt)
+        if ai:
+            res = f"🌐 (AI)\n{ai}"
+            return history + [[query, res]], ai
+        else:
+            res = "⚠️ No AI response found."
+            return history + [[query, res]], res
     else:
-        # Offline mode: search within PDF text
-        words = [w.lower() for w in question.split() if len(w) > 2]
-        sentences = pdf_text.replace("\n", " ").split(". ")
-        matched = [s for s in sentences if sum(w in s.lower() for w in words) >= len(words) / 2]
-        if matched:
-            ans = ". ".join(matched[:3])
-            CACHE[cache_key] = ans
-            return "📚 (Offline Answer)\n" + ans, (speak(ans, gender) if speak_enable else None)
-        return "📴 Offline mode: No match found.", None
+        res = "📴 Offline. Connect to the Internet or use offline data."
+        return history + [[query, res]], res
 
-def welcome_voice(gender="female"):
-    return speak("Welcome to EduSmart AI Ultra. Your smart bilingual tutor!", gender)
+# =============================
+# 💬 Gradio Interface (Async Ready)
+# =============================
+with gr.Blocks(title="EduSmart AI — Gemini + Hugging Face (Async)", theme=gr.themes.Soft()) as demo:
+    gr.HTML("""
+    <h1 style='text-align:center;color:#0070f3;'>🎓 EduSmart AI — Async Gemini + Hugging Face</h1>
+    <p style='text-align:center;'>Smart Bilingual Tutor • Offline Mode • Voice • Calculator</p>
+    <style>
+    .textbox { font-family: 'Noto Sans Bengali', sans-serif; }
+    </style>
+    """)
 
-def exit_voice(gender="female"):
-    return speak("Thank you for using EduSmart AI Ultra. See you again soon!", gender)
+    chatbot = gr.Chatbot(height=480, show_label=False)
+    query = gr.Textbox(label="Ask (বাংলা / English / Math)", placeholder="Type or Speak…", elem_classes=["textbox"])
+    audio_in = gr.Audio(label="🎙 Speak", type="filepath")
+    send = gr.Button("🚀 Send")
+    clear = gr.Button("🧹 Clear")
+    audio_out = gr.Audio(label="🔊 Listen", type="filepath")
 
-with gr.Blocks(title="EduSmart AI Ultra") as demo:
-    # Show logo from Hugging Face URL
-    gr.Image("https://huggingface.co/spaces/zahid397/EduSmart_AI/resolve/main/logo_.png",
-             show_label=False)
-    gr.Markdown("# 🎓 EduSmart AI Ultra")
+    async def respond(history, query, audio_in):
+        new_history, final_res = await answer(history, query, audio_in)
+        voice = await tts(final_res)
+        return new_history, "", voice
 
-    with gr.Row():
-        sub = gr.Dropdown(["Bangla", "English", "Math"], label="📘 Subject", value="Bangla")
-        gender = gr.Radio(["male", "female"], label="🎙 Voice Type", value="female")
-        voice_on = gr.Checkbox(label="🔊 Voice Reply", value=True)
-
-    gr.Audio(value=welcome_voice("female"), autoplay=True, label="🎵 Welcome")
-
-    q = gr.Textbox(label="Ask Question (Bangla / English)", lines=2)
-    audio_in = gr.Audio(label="🎤 Speak Question", type="filepath")
-    btn = gr.Button("🚀 Get Answer")
-
-    out_text = gr.Textbox(label="Answer", lines=10)
-    out_audio = gr.Audio(label="🔊 Voice Output", type="filepath")
-
-    btn.click(fn=smart_answer,
-              inputs=[q, sub, audio_in, voice_on, gender],
-              outputs=[out_text, out_audio])
-
-    bye_btn = gr.Button("❌ Exit")
-    bye_audio = gr.Audio(label="👋 Goodbye", type="filepath")
-    bye_btn.click(fn=lambda g: ("👋 Thank you!", exit_voice(g)),
-                  inputs=[gender], outputs=[out_text, bye_audio])
+    send.click(respond, [chatbot, query, audio_in], [chatbot, query, audio_out])
+    clear.click(lambda: ([], "", None), outputs=[chatbot, query, audio_out])
 
 if __name__ == "__main__":
-    demo.launch(share=True)
+    demo.queue().launch(share=True)
