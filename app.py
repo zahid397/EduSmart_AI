@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-import base64, os
+import base64, os, json
 from gtts import gTTS
 from fpdf import FPDF
 from datetime import datetime
@@ -52,58 +52,33 @@ play_welcome_voice()
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ---------- Smart Reply (Final No Crash Version) ----------
+# ---------- Smart Reply (Crash-Proof Final Version) ----------
 def smart_reply(prompt):
-    sys = (
-        "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). "
-        "Give factual, helpful, educational answers using web grounding when needed."
-    )
     try:
-        r = model.generate_content(sys + "\n\nUser: " + prompt, tools=[{"name": "google_search"}])
+        sys = "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). Answer factually with clarity."
+        response = model.generate_content(sys + "\n\nUser: " + prompt, tools=[{"name": "google_search"}])
 
-        # Try normal text
-        if hasattr(r, "text") and r.text:
-            return r.text.strip()
+        # ✅ If plain text exists
+        if hasattr(response, "text") and response.text:
+            return response.text.strip()
 
-        # Try candidates
-        if hasattr(r, "candidates"):
-            for c in r.candidates:
+        # ✅ Try parsing candidates safely
+        if hasattr(response, "candidates"):
+            texts = []
+            for c in response.candidates:
                 if hasattr(c, "content") and hasattr(c.content, "parts"):
                     for p in c.content.parts:
                         if hasattr(p, "text") and p.text:
-                            return p.text.strip()
+                            texts.append(p.text.strip())
+                        elif hasattr(p, "function_call"):
+                            texts.append("🔧 Function call detected: " + json.dumps(p.function_call, ensure_ascii=False))
+            if texts:
+                return "\n\n".join(texts)
 
-        # Fallback: stringify full response safely
-        return str(r)[:1000]
+        # ✅ If still nothing, stringify everything
+        return json.dumps(response.to_dict() if hasattr(response, "to_dict") else str(response), ensure_ascii=False)[:1000]
 
     except Exception as e:
-        # Last-resort fallback
-        return f"⚠️ সিস্টেম ত্রুটি ঘটেছে: {str(e)}"
+        return f"⚠️ সিস্টেম ত্রুটি ঘটেছে: {e}"
 
-# ---------- Chat Display ----------
-for role, msg in st.session_state.chat_history[-10:]:
-    css = "chat-bubble-user" if role == "user" else "chat-bubble-ai"
-    st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
-
-# ---------- Chat Input ----------
-if user_input := st.chat_input("তোমার প্রশ্ন লিখো..."):
-    st.session_state.chat_history.append(("user", user_input))
-    with st.spinner("ভাবছি... 🤔"):
-        ans = smart_reply(user_input)
-        st.session_state.chat_history.append(("ai", ans))
-        st.markdown(f"<div class='chat-bubble-ai'>{ans}</div>", unsafe_allow_html=True)
-        speak(ans)
-    st.rerun()
-
-# ---------- PDF Export ----------
-if st.button("📄 Save Chat as PDF"):
-    pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", size=12)
-    pdf.cell(200,10,"EduSmart AI Pro Chat History",ln=True,align="C")
-    pdf.cell(200,10,f"Saved: {datetime.now()}",ln=True); pdf.ln(10)
-    for r,m in st.session_state.chat_history:
-        prefix = "👤 You:" if r=="user" else "🤖 AI:"
-        pdf.multi_cell(0,8,f"{prefix} {m}")
-        pdf.ln(2)
-    pdf.output("chat.pdf")
-    with open("chat.pdf","rb") as f:
-        st.download_button("⬇️ Download PDF", f, "EduSmart_Chat.pdf")
+# ----------
