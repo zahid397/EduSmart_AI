@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-import base64, os, json
+import base64, os
 from gtts import gTTS
 from fpdf import FPDF
 from datetime import datetime
@@ -19,10 +19,7 @@ def speak(text):
     with open("temp.mp3", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     os.remove("temp.mp3")
-    st.markdown(
-        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
 def play_welcome_voice():
     msg = "হ্যালো! আমি এডুস্মার্ট এআই প্রো। কীভাবে সাহায্য করতে পারি?"
@@ -31,10 +28,7 @@ def play_welcome_voice():
     with open("welcome.mp3", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     os.remove("welcome.mp3")
-    st.markdown(
-        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
 # ---------- UI ----------
 st.set_page_config(page_title="EduSmart AI Pro", page_icon="💡", layout="centered")
@@ -42,10 +36,8 @@ st.markdown("""
 <style>
 .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
 color:#f8fafc;font-family:'Poppins',sans-serif;}
-.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;
-border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
-.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;
-border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
 h1,h3{text-align:center;color:#38bdf8;}
 </style>
 """, unsafe_allow_html=True)
@@ -60,40 +52,33 @@ play_welcome_voice()
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ---------- Smart Reply (Final Fixed Version) ----------
+# ---------- Smart Reply (Final No Crash Version) ----------
 def smart_reply(prompt):
     sys = (
         "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). "
-        "Give factual, clear, educational answers using Google Grounding when needed. "
-        "If you don’t know, say so politely."
+        "Give factual, helpful, educational answers using web grounding when needed."
     )
     try:
         r = model.generate_content(sys + "\n\nUser: " + prompt, tools=[{"name": "google_search"}])
 
-        # ✅ Step 1: Normal text output
+        # Try normal text
         if hasattr(r, "text") and r.text:
             return r.text.strip()
 
-        # ✅ Step 2: Candidate-based structure
+        # Try candidates
         if hasattr(r, "candidates"):
             for c in r.candidates:
                 if hasattr(c, "content") and hasattr(c.content, "parts"):
                     for p in c.content.parts:
                         if hasattr(p, "text") and p.text:
                             return p.text.strip()
-                        elif hasattr(p, "function_call"):
-                            try:
-                                func_data = json.dumps(p.function_call, ensure_ascii=False)
-                                return f"🔧 Gemini used an internal function call:\n\n{func_data}"
-                            except:
-                                return "⚙️ Gemini internally used a function. Please rephrase."
 
-        # ✅ Step 3: Unknown structure
-        return "🤔 আমি নিশ্চিত নই, প্রশ্নটা একটু ভিন্নভাবে বলো।"
+        # Fallback: stringify full response safely
+        return str(r)[:1000]
 
     except Exception as e:
-        # ✅ Step 4: Fully safe fallback
-        return f"⚠️ সিস্টেম ত্রুটি: {str(e)}"
+        # Last-resort fallback
+        return f"⚠️ সিস্টেম ত্রুটি ঘটেছে: {str(e)}"
 
 # ---------- Chat Display ----------
 for role, msg in st.session_state.chat_history[-10:]:
