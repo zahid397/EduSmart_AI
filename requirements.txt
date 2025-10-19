@@ -6,3 +6,5 @@ gtts
 SpeechRecognition
 pydub
 asyncio
+language-tool-python
+openai
