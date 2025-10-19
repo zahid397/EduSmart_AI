@@ -1,11 +1,10 @@
 import os
 import json
-import math
 import socket
 import asyncio
 import httpx
 import tempfile
-import gradio as gr
+import streamlit as st
 from gtts import gTTS
 import speech_recognition as sr
 from sympy import sympify, sqrt, pi
@@ -41,49 +40,40 @@ def is_online():
 # =============================
 # 🎤 Speech → Text
 # =============================
-async def stt(audio_path):
-    if not audio_path:
+def stt(audio_file):
+    if not audio_file:
         return ""
     if not is_online():
-        return "(Offline: Voice input unavailable. Use text instead.)"
+        return "(Offline: Voice input unavailable.)"
     try:
-        loop = asyncio.get_running_loop()
-
-        def _recognize(path):
-            r = sr.Recognizer()
-            with sr.AudioFile(path) as src:
-                data = r.record(src)
-            return r.recognize_google(data, language="bn-BD")
-
-        return await loop.run_in_executor(None, _recognize, audio_path)
+        r = sr.Recognizer()
+        with sr.AudioFile(audio_file) as src:
+            data = r.record(src)
+        return r.recognize_google(data, language="bn-BD")
     except Exception as e:
         return f"(STT Error: {str(e)})"
 
 # =============================
 # 🔊 Text → Speech
 # =============================
-async def tts(text):
+def tts(text):
     if not text:
         return None
     lang = "bn" if any('\u0980' <= c <= '\u09FF' for c in text) else "en"
     try:
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as fp:
             filename = fp.name
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, gTTS(text=text, lang=lang).save, filename)
+        gTTS(text=text, lang=lang).save(filename)
         return filename
     except Exception as e:
-        print(f"TTS Error: {e}")
+        st.warning(f"TTS Error: {e}")
         return None
 
 # =============================
-# 🧮 Safe Calculator
+# 🧮 Calculator
 # =============================
 def calc(expr):
-    expr = expr.strip()
-    if not expr:
-        return ""
-    expr = expr.replace("^", "**").replace("√", "sqrt").replace("π", "pi")
+    expr = expr.strip().replace("^", "**").replace("√", "sqrt").replace("π", "pi")
     try:
         result = sympify(expr).evalf()
         return f"🧮 Answer = {result}"
@@ -91,21 +81,16 @@ def calc(expr):
         return ""
 
 # =============================
-# 📘 Offline QnA Loader
+# 📘 Offline QnA
 # =============================
 def load_qna():
     folder = "json_data"
     qna = []
-    if not os.path.exists(folder):
-        print("⚠️ 'json_data' folder not found — Offline mode disabled.")
-        return []
-    for f in os.listdir(folder):
-        if f.endswith(".json"):
-            try:
+    if os.path.exists(folder):
+        for f in os.listdir(folder):
+            if f.endswith(".json"):
                 with open(os.path.join(folder, f), encoding="utf-8") as file:
                     qna.extend(json.load(file))
-            except Exception as e:
-                print(f"JSON Load Error ({f}): {e}")
     return qna
 
 QNA = load_qna()
@@ -118,96 +103,77 @@ def search_local(q):
     return ""
 
 # =============================
-# ⚡ Gemini API (Async)
+# ⚡ Gemini + Hugging Face
 # =============================
 async def gemini_answer(prompt):
-    if not GEMINI_KEY:
-        return ""
     try:
         genai.configure(api_key=GEMINI_KEY)
         model = genai.GenerativeModel(GEMINI_MODEL)
         response = await asyncio.to_thread(model.generate_content, prompt)
         return getattr(response, "text", "").strip()
     except Exception as e:
-        return f"(Gemini Error: {str(e)})"
+        return f"(Gemini Error: {e})"
 
-# =============================
-# 🤗 Hugging Face API (Async)
-# =============================
 async def hf_answer(prompt):
-    if not HF_KEY:
-        return ""
     try:
         headers = {"Authorization": f"Bearer {HF_KEY}"}
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(HF_MODEL_URL, headers=headers, json={"inputs": prompt})
-        if response.status_code == 200:
-            data = response.json()
+            r = await client.post(HF_MODEL_URL, headers=headers, json={"inputs": prompt})
+        if r.status_code == 200:
+            data = r.json()
             return data[0].get("generated_text", "").strip()
-        return ""
     except Exception as e:
-        return f"(HF Error: {str(e)})"
+        return f"(HF Error: {e})"
+    return ""
 
 # =============================
-# 🧠 Main Answer Logic
+# 🧠 Main Logic
 # =============================
-async def answer(history, query, audio=None):
-    if not query and audio:
-        query = await stt(audio)
+async def get_answer(query):
     if not query:
-        return history + [[None, "⚠️ Please type or speak your question."]], ""
+        return "⚠️ Please ask a question."
 
-    if query.startswith("("):  # Error from STT
-        return history + [[None, query]], query
-
+    # Calculator
     calc_res = calc(query)
     if calc_res:
-        return history + [[query, calc_res]], calc_res
+        return calc_res
 
+    # Offline
     local = search_local(query)
     if local:
-        res = f"📚 (Offline)\n{local}"
-        return history + [[query, res]], local
+        return f"📚 (Offline)\n{local}"
 
+    # Online AI
     if is_online():
         prompt = f"{SYS_PROMPT}\nUser: {query}"
         ai = await gemini_answer(prompt) or await hf_answer(prompt)
-        if ai:
-            res = f"🌐 (AI)\n{ai}"
-            return history + [[query, res]], ai
-        else:
-            res = "⚠️ No AI response found."
-            return history + [[query, res]], res
+        return f"🌐 (AI)\n{ai}" if ai else "⚠️ No AI response found."
     else:
-        res = "📴 Offline. Connect to the Internet or use offline data."
-        return history + [[query, res]], res
+        return "📴 Offline. Connect to Internet."
 
 # =============================
-# 💬 Gradio Interface (Async Ready)
+# 🎨 Streamlit UI
 # =============================
-with gr.Blocks(title="EduSmart AI — Gemini + Hugging Face (Async)", theme=gr.themes.Soft()) as demo:
-    gr.HTML("""
-    <h1 style='text-align:center;color:#0070f3;'>🎓 EduSmart AI — Async Gemini + Hugging Face</h1>
-    <p style='text-align:center;'>Smart Bilingual Tutor • Offline Mode • Voice • Calculator</p>
-    <style>
-    .textbox { font-family: 'Noto Sans Bengali', sans-serif; }
-    </style>
-    """)
+st.set_page_config(page_title="EduSmart AI — Streamlit", layout="centered")
 
-    chatbot = gr.Chatbot(height=480, show_label=False)
-    query = gr.Textbox(label="Ask (বাংলা / English / Math)", placeholder="Type or Speak…", elem_classes=["textbox"])
-    audio_in = gr.Audio(label="🎙 Speak", type="filepath")
-    send = gr.Button("🚀 Send")
-    clear = gr.Button("🧹 Clear")
-    audio_out = gr.Audio(label="🔊 Listen", type="filepath")
+st.title("🎓 EduSmart AI — Gemini + Hugging Face (Streamlit Version)")
+st.markdown("#### 🧠 Bilingual Tutor • Voice • Offline Mode • Calculator")
 
-    async def respond(history, query, audio_in):
-        new_history, final_res = await answer(history, query, audio_in)
-        voice = await tts(final_res)
-        return new_history, "", voice
+query = st.text_input("Type your question (বাংলা / English / Math):")
+audio_input = st.file_uploader("🎙 Upload voice (optional)", type=["wav", "mp3"])
 
-    send.click(respond, [chatbot, query, audio_in], [chatbot, query, audio_out])
-    clear.click(lambda: ([], "", None), outputs=[chatbot, query, audio_out])
+if st.button("🚀 Ask"):
+    if audio_input:
+        text = stt(audio_input)
+        st.write(f"🎤 Recognized Speech: `{text}`")
+        query = query or text
 
-if __name__ == "__main__":
-    demo.queue().launch(share=True)
+    if query:
+        with st.spinner("Thinking... 🤔"):
+            ans = asyncio.run(get_answer(query))
+        st.success(ans)
+        audio_path = tts(ans)
+        if audio_path:
+            st.audio(audio_path)
+    else:
+        st.warning("Please type or upload a question!")
