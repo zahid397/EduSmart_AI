@@ -1,0 +1,122 @@
+[
+  {
+    "question": "noun",
+    "answer": "A noun is a word that names a person, place, thing, or idea. Example: Dhaka, book, love."
+  },
+  {
+    "question": "verb",
+    "answer": "A verb shows an action or state of being. Example: run, write, is."
+  },
+  {
+    "question": "adjective",
+    "answer": "An adjective describes a noun. Example: tall, red, beautiful."
+  },
+  {
+    "question": "tense",
+    "answer": "Tense indicates the time of an action — past, present, or future."
+  },
+  {
+    "question": "সমাস",
+    "answer": "সমাস হলো দুটি বা ততোধিক পদ মিলিয়ে নতুন অর্থবোধক পদ গঠন করা। উদাহরণ: রাজপুত্র = রাজা + পুত্র।"
+  },
+  {
+    "question": "কারক",
+    "answer": "কারক হলো সেই শব্দ যা ক্রিয়ার সাথে অন্য শব্দের সম্পর্ক বোঝায়। উদাহরণ: সে স্কুলে যায়।"
+  },
+  {
+    "question": "বিশেষণ",
+    "answer": "বিশেষণ এমন একটি শব্দ যা বিশেষ্য বা সর্বনামের গুণ বা বৈশিষ্ট্য প্রকাশ করে। যেমন: লাল ফুল, ভালো ছেলে।"
+  },
+  {
+    "question": "ক্রিয়া",
+    "answer": "ক্রিয়া এমন শব্দ যা কাজ বা অবস্থাকে বোঝায়। যেমন: খাওয়া, ঘুমানো।"
+  },
+  {
+    "question": "photosynthesis",
+    "answer": "Photosynthesis is the process by which green plants make food using sunlight, carbon dioxide, and water."
+  },
+  {
+    "question": "photosynthesis formula",
+    "answer": "6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂"
+  },
+  {
+    "question": "বাংলাদেশের রাজধানী",
+    "answer": "বাংলাদেশের রাজধানী ঢাকা।"
+  },
+  {
+    "question": "জাতীয় ফুল",
+    "answer": "বাংলাদেশের জাতীয় ফুল শাপলা।"
+  },
+  {
+    "question": "জাতীয় প্রাণী",
+    "answer": "বাংলাদেশের জাতীয় প্রাণী রয়েল বেঙ্গল টাইগার।"
+  },
+  {
+    "question": "জাতীয় পাখি",
+    "answer": "বাংলাদেশের জাতীয় পাখি দোয়েল।"
+  },
+  {
+    "question": "speed formula",
+    "answer": "Speed = Distance ÷ Time"
+  },
+  {
+    "question": "force formula",
+    "answer": "Force = Mass × Acceleration (F = m × a)"
+  },
+  {
+    "question": "density formula",
+    "answer": "Density = Mass ÷ Volume"
+  },
+  {
+    "question": "triangle area formula",
+    "answer": "Area of a triangle = ½ × base × height"
+  },
+  {
+    "question": "circle area formula",
+    "answer": "Area of a circle = π × r²"
+  },
+  {
+    "question": "square area formula",
+    "answer": "Area of a square = side × side"
+  },
+  {
+    "question": "Pythagoras theorem",
+    "answer": "In a right triangle, a² = b² + c²"
+  },
+  {
+    "question": "gravity",
+    "answer": "Gravity is the force that pulls objects towards the center of the Earth."
+  },
+  {
+    "question": "evaporation",
+    "answer": "Evaporation is the process by which a liquid changes into vapor on heating."
+  },
+  {
+    "question": "atom",
+    "answer": "An atom is the smallest unit of matter that retains the properties of an element."
+  },
+  {
+    "question": "electric current",
+    "answer": "Electric current is the flow of electrons through a conductor."
+  },
+  {
+    "question": "blood function",
+    "answer": "Blood carries oxygen and nutrients to all parts of the body."
+  },
+  {
+    "question": "present perfect tense",
+    "answer": "Present perfect tense shows an action that has just finished. Example: I have eaten rice."
+  },
+  {
+    "question": "বাংলাদেশের জাতীয় সংগীত",
+    "answer": "বাংলাদেশের জাতীয় সংগীত হলো 'আমার সোনার বাংলা'।"
+  },
+  {
+    "question": "computer",
+    "answer": "A computer is an electronic device used to process and store data."
+  },
+  {
+    "question": "AI",
+    "answer": "AI or Artificial Intelligence is the simulation of human intelligence in machines that can think and learn."
+  }
+]
