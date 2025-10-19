@@ -1,48 +1,50 @@
 import streamlit as st
 import google.generativeai as genai
 import speech_recognition as sr
-import pyttsx3, base64, tempfile, os
+import base64, tempfile, os
+from gtts import gTTS           # ✅ Google Text-to-Speech (Cloud compatible)
 from fpdf import FPDF
 from datetime import datetime
 
-# ========== Gemini 2.5 Flash Setup ==========
+# ---------- Gemini 2.5 Flash Setup ----------
 api_key = st.sidebar.text_input("🔑 Gemini API Key", type="password",
                                 value=st.secrets.get("GOOGLE_API_KEY", ""))
 if api_key:
     genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# ========== Voice Engine ==========
-tts = pyttsx3.init()
+# ---------- Voice Output ----------
 def speak(text):
-    """Convert text to audio and autoplay in browser"""
-    tts.save_to_file(text, "temp.mp3"); tts.runAndWait()
-    with open("temp.mp3","rb") as f: audio=f.read()
+    """Generate audio using Google TTS and play it in browser"""
+    tts = gTTS(text=text, lang="bn")
+    tts.save("temp.mp3")
+    with open("temp.mp3", "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
     os.remove("temp.mp3")
-    b64=base64.b64encode(audio).decode()
-    st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    st.markdown(
+        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
+        unsafe_allow_html=True
+    )
 
+# ---------- Voice Input ----------
 def listen():
-    """Live mic listening"""
-    r=sr.Recognizer()
+    r = sr.Recognizer()
     with sr.Microphone() as src:
         st.info("🎧 বলো, আমি শুনছি...")
-        audio=r.listen(src, timeout=5, phrase_time_limit=8)
+        audio = r.listen(src, timeout=5, phrase_time_limit=8)
     try:
         return r.recognize_google(audio, language="bn-BD")
     except:
         return ""
 
-# ========== UI Setup ==========
+# ---------- UI Setup ----------
 st.set_page_config(page_title="EduSmart AI Pro", page_icon="💡", layout="centered")
 st.markdown("""
 <style>
 .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
 color:#f8fafc;font-family:'Poppins',sans-serif;}
-.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;
-border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
-.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;
-border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;display:inline-block;}
+.chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;display:inline-block;}
 h1,h3{text-align:center;color:#38bdf8;}
 </style>
 """, unsafe_allow_html=True)
@@ -50,11 +52,11 @@ h1,h3{text-align:center;color:#38bdf8;}
 st.markdown("<h1>EduSmart AI Pro 💡</h1>", unsafe_allow_html=True)
 st.markdown("<h3>Learn • Solve • Search — Powered by Gemini 2.5 Flash ⚡</h3>", unsafe_allow_html=True)
 
-# ========== Chat Memory ==========
+# ---------- Chat Memory ----------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ========== Control Buttons ==========
+# ---------- Control Buttons ----------
 col_clear, col_pdf, col_voice = st.columns([1,1,2])
 with col_clear:
     if st.button("🗑️ Clear Chat"):
@@ -87,16 +89,16 @@ with col_voice:
                 speak(ans)
         st.rerun()
 
-# ========== Show Chat History ==========
+# ---------- Show Chat History ----------
 for role, msg in st.session_state.chat_history[-10:]:
     css = "chat-bubble-user" if role == "user" else "chat-bubble-ai"
     st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
 
-# ========== Smart Reply Function ==========
+# ---------- Smart Reply ----------
 def smart_reply(prompt):
     sys = ("You are EduSmart AI Pro — a bilingual smart tutor (Bangla/English). "
-           "Use Google Grounding to provide factual and clear answers. "
-           "Never invent information. If unsure, say you can check online.")
+           "Use Google Grounding to give factual, correct, clear answers. "
+           "Never invent information; if unsure, say you can check online.")
     try:
         cfg = genai.types.GenerateContentConfig(tools=[genai.types.GoogleSearch()])
         r = model.generate_content(sys + "\n\nUser: " + prompt, config=cfg)
@@ -104,7 +106,7 @@ def smart_reply(prompt):
     except Exception as e:
         return f"⚠️ ত্রুটি: {e}"
 
-# ========== Chat Input ==========
+# ---------- Chat Input ----------
 if user_input := st.chat_input("তোমার প্রশ্ন লিখো..."):
     st.session_state.chat_history.append(("user", user_input))
     with st.spinner("ভাবছি... 🤔"):
