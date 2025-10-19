@@ -1,10 +1,6 @@
 streamlit
 google-generativeai
-sympy
-httpx
-gtts
-SpeechRecognition
-pydub
-asyncio
-language-tool-python
-openai
+speechrecognition
+pyttsx3
+pyaudio
+fpdf
