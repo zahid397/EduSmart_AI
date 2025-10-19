@@ -1,8 +1,8 @@
-gradio
-openai
-requests
-PyMuPDF
+streamlit
+google-generativeai
+sympy
+httpx
 gtts
-google-api-python-client
-speechrecognition
-python-dotenv
+SpeechRecognition
+pydub
+asyncio
