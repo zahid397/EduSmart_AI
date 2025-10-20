@@ -5,21 +5,24 @@ from gtts import gTTS
 from fpdf import FPDF
 from datetime import datetime
 
-# ---------- Gemini API Setup ----------
+# ========== Gemini 2.5 Flash Setup ==========
 api_key = st.sidebar.text_input("🔑 Gemini API Key", type="password",
                                 value=st.secrets.get("GOOGLE_API_KEY", ""))
 if api_key:
     genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# ---------- Voice ----------
+# ========== Voice ==========
 def speak(text):
     tts = gTTS(text=text, lang="bn")
     tts.save("temp.mp3")
     with open("temp.mp3", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     os.remove("temp.mp3")
-    st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    st.markdown(
+        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
+        unsafe_allow_html=True
+    )
 
 def play_welcome_voice():
     msg = "হ্যালো! আমি এডুস্মার্ট এআই প্রো। কীভাবে সাহায্য করতে পারি?"
@@ -28,9 +31,12 @@ def play_welcome_voice():
     with open("welcome.mp3", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     os.remove("welcome.mp3")
-    st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    st.markdown(
+        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
+        unsafe_allow_html=True
+    )
 
-# ---------- UI ----------
+# ========== UI ==========
 st.set_page_config(page_title="EduSmart AI Pro", page_icon="💡", layout="centered")
 st.markdown("""
 <style>
@@ -51,14 +57,14 @@ st.markdown("<h1>🏆 EduSmart AI Pro 💡</h1>", unsafe_allow_html=True)
 st.markdown("<h3>Learn • Solve • Search — Powered by Gemini 2.5 Flash ⚡</h3>", unsafe_allow_html=True)
 play_welcome_voice()
 
-# ---------- Memory ----------
+# ========== Chat Memory ==========
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ---------- Smart Reply ----------
+# ========== Smart Reply ==========
 def smart_reply(prompt):
     try:
-        sys = "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). Give factual, educational answers clearly."
+        sys = "You are EduSmart AI Pro — a bilingual tutor (Bangla/English). Give factual, helpful educational answers clearly."
         r = model.generate_content(sys + "\n\nUser: " + prompt)
 
         if hasattr(r, "text") and r.text:
@@ -72,15 +78,46 @@ def smart_reply(prompt):
                         if hasattr(p, "text") and p.text:
                             texts.append(p.text.strip())
                         elif hasattr(p, "function_call"):
-                            texts.append("⚙️ Gemini used an internal function. Please rephrase.")
+                            texts.append("⚙️ Gemini used an internal function — please rephrase.")
             if texts:
                 return "\n\n".join(texts)
 
-        return str(r)[:800]
+        return json.dumps(r.to_dict() if hasattr(r, "to_dict") else str(r))[:800]
 
     except Exception as e:
         return f"⚠️ সিস্টেম ত্রুটি ঘটেছে: {e}"
 
-# ---------- Chat Display ----------
+# ========== Chat Display ==========
 for role, msg in st.session_state.chat_history[-10:]:
-    css = "chat-bubble-user" if role == "user
+    css = "chat-bubble-user" if role == "user" else "chat-bubble-ai"
+    st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
+
+# ========== Chat Input + Send Button ==========
+with st.form("chat_form", clear_on_submit=True):
+    user_input = st.text_input("তোমার প্রশ্ন লিখো...", "")
+    send = st.form_submit_button("✅ Send")
+
+if send and user_input:
+    st.session_state.chat_history.append(("user", user_input))
+    with st.spinner("ভাবছি... 🤔"):
+        ans = smart_reply(user_input)
+        st.session_state.chat_history.append(("ai", ans))
+        st.markdown(f"<div class='chat-bubble-ai'>{ans}</div>", unsafe_allow_html=True)
+        speak(ans)
+    st.rerun()
+
+# ========== Save Chat as PDF ==========
+if st.button("📄 Save Chat as PDF"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200,10,"EduSmart AI Pro Chat History",ln=True,align="C")
+    pdf.cell(200,10,f"Saved: {datetime.now()}",ln=True)
+    pdf.ln(10)
+    for r,m in st.session_state.chat_history:
+        prefix = "👤 You:" if r=="user" else "🤖 AI:"
+        pdf.multi_cell(0,8,f"{prefix} {m}")
+        pdf.ln(2)
+    pdf.output("chat.pdf")
+    with open("chat.pdf","rb") as f:
+        st.download_button("⬇️ Download Chat PDF", f, "EduSmart_Chat.pdf")
