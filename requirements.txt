@@ -1,5 +1,10 @@
 streamlit
 google-generativeai
-speechrecognition
+SpeechRecognition
 gtts
-fpdf
+sympy
+pillow
+pytesseract
+fpdf2
+langdetect
+text2emotion
