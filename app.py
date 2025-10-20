@@ -1,27 +1,23 @@
-# ============================================
-# EduSmart AI Pro v5.7 — Final Cloud Edition ✅
-# ============================================
+# ======================================
+# EduSmart AI Pro v5.8 – Final Cloud Safe Edition ✅
+# ======================================
+
 import streamlit as st
 import google.generativeai as genai
-import speech_recognition as sr
-import base64, os, re, json
-from gtts import gTTS
-from fpdf import FPDF     # ✅ Fixed import for Streamlit Cloud
+import base64, os, re, json, platform
 from datetime import datetime
 from langdetect import detect
+from gtts import gTTS
+from fpdf import FPDF
 from PIL import Image
 import pytesseract
 import sympy as sp
 from sympy.plotting import plot
 import matplotlib
 matplotlib.use("Agg")
-import platform, os
+
+# ---------- Check Environment ----------
 IS_CLOUD = "streamlit" in platform.node().lower() or os.environ.get("STREAMLIT_RUNTIME", "")
-if not IS_CLOUD:
-    if st.button("🎙️ ভয়েস ইনপুট (লোকাল)"):
-        ...
-else:
-    st.warning("🎙️ ভয়েস ইনপুট Streamlit Cloud-এ কাজ করে না। লোকাল কম্পিউটারে চালিয়ে দেখুন।")
 
 # ---------- Gemini Setup ----------
 @st.cache_resource
@@ -37,7 +33,7 @@ api_key = (
 )
 model = get_model(api_key)
 
-# ---------- Voice ----------
+# ---------- Voice (Cloud Safe) ----------
 def speak(text, lang="bn"):
     try:
         tts = gTTS(text=text, lang=lang)
@@ -50,7 +46,6 @@ def speak(text, lang="bn"):
             unsafe_allow_html=True,
         )
     except Exception:
-        # Browser fallback
         st.markdown(
             f"""
             <script>
@@ -66,17 +61,18 @@ def speak(text, lang="bn"):
         )
 
 def listen():
-    r = sr.Recognizer()
-    r.pause_threshold = 0.8
+    if IS_CLOUD:
+        st.warning("🎙️ Streamlit Cloud-এ ভয়েস ইনপুট কাজ করে না। লোকালে চালান।")
+        return ""
     try:
+        import speech_recognition as sr
+        r = sr.Recognizer()
         with sr.Microphone() as src:
-            st.info("🎧 Adjusting for ambient noise...")
-            r.adjust_for_ambient_noise(src, duration=1)
             st.info("🎧 বলুন, আমি শুনছি...")
             audio = r.listen(src, timeout=10, phrase_time_limit=10)
         return r.recognize_google(audio, language="bn-BD")
     except Exception as e:
-        st.warning(f"🎙️ ভয়েস ইনপুট ব্যর্থ: {e}")
+        st.warning(f"🎙️ লোকাল ভয়েস ইনপুট ব্যর্থ: {e}")
         return ""
 
 # ---------- Math Solver ----------
@@ -101,14 +97,14 @@ def solve_math(expr):
     except Exception as e:
         return f"⚠️ Math error: {e}", None, []
 
-# ---------- UI ----------
-st.set_page_config(page_title="EduSmart AI Pro", page_icon="💡", layout="wide")
+# ---------- UI Setup ----------
+st.set_page_config(page_title="EduSmart AI Pro", page_icon="⚡", layout="wide")
 st.markdown(
     """
     <style>
-    .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);color:#f8fafc;font-family:'Poppins',sans-serif;}
+    .stApp {background:linear-gradient(135deg,#020617,#0f172a,#1e293b);color:#f8fafc;font-family:'Poppins',sans-serif;}
     .chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;}
-    .chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px 16px 4px;margin:6px 0;max-width:85%;}
+    .chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;}
     h1,h3{text-align:center;color:#38bdf8;}
     </style>
     """,
@@ -144,12 +140,10 @@ if uploaded:
             low, high = min(real_sols) - 1, max(real_sols) + 1
             p = plot(sp.sympify(text.replace("=0", "")), (sp.Symbol("x"), low, high), show=False)
             p[0].line_color = "blue"
-            p[0].label = "Equation"
             for i, root in enumerate(real_sols):
                 vline = plot(sp.Symbol("x") - root, show=False)
                 vline[0].line_color = "red"
                 vline[0].line_style = "--"
-                vline[0].label = f"Root {i+1}"
                 p.append(vline[0])
             p.legend = True
             p.legend_location = "upper right"
@@ -163,7 +157,7 @@ for role, msg in st.session_state.chat:
     st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
 
 prompt = st.chat_input("বার্তা লিখুন...")
-if st.button("🎙️ ভয়েস ইনপুট দিন"):
+if st.button("🎙️ ভয়েস ইনপুট দিন", key="voice_btn_chat"):
     voice_input = listen()
     if voice_input:
         st.info(f"🎙️ আপনি বলেছেন: {voice_input}")
@@ -192,26 +186,28 @@ if prompt:
 st.markdown("---")
 expr = st.text_input("🧮 Enter math expression (optional):", placeholder="e.g., x^2 - 4")
 if expr:
-    msg, latex_expr, real_sols = solve_math(expr)
-    st.success(msg)
-    if latex_expr:
-        st.latex(latex_expr)
-    if real_sols and st.checkbox("📈 Show Graph?", key=f"plot_{expr}"):
-        try:
-            low, high = min(real_sols) - 1, max(real_sols) + 1
-            p = plot(sp.sympify(expr), (sp.Symbol("x"), low, high), show=False)
-            p[0].line_color = "blue"
-            for i, root in enumerate(real_sols):
-                vline = plot(sp.Eq(sp.Symbol("x"), root), show=False)
-                vline[0].line_color = "red"
-                vline[0].line_style = "--"
-                vline[0].label = f"Root {i+1}"
-                p.append(vline[0])
-            p.legend = True
-            p.legend_location = "upper right"
-            st.pyplot(p._backend.fig)
-        except Exception as e:
-            st.error(f"Plot Error: {e}")
+    if not re.search(r"[0-9x=+\-*/^]", expr):
+        st.info("💡 এটি গণিত এক্সপ্রেশন নয়। অনুগ্রহ করে শুধু সমীকরণ লিখুন (যেমন: x^2 - 4 = 0)")
+    else:
+        msg, latex_expr, real_sols = solve_math(expr)
+        st.success(msg)
+        if latex_expr:
+            st.latex(latex_expr)
+        if real_sols and st.checkbox("📈 Show Graph?", key=f"plot_{expr}"):
+            try:
+                low, high = min(real_sols) - 1, max(real_sols) + 1
+                p = plot(sp.sympify(expr), (sp.Symbol("x"), low, high), show=False)
+                p[0].line_color = "blue"
+                for i, root in enumerate(real_sols):
+                    vline = plot(sp.Symbol("x") - root, show=False)
+                    vline[0].line_color = "red"
+                    vline[0].line_style = "--"
+                    p.append(vline[0])
+                p.legend = True
+                p.legend_location = "upper right"
+                st.pyplot(p._backend.fig)
+            except Exception as e:
+                st.error(f"Plot Error: {e}")
 
 # ---------- PDF Export ----------
 st.markdown("---")
