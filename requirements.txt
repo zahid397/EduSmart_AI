@@ -2,9 +2,9 @@ streamlit
 google-generativeai
 SpeechRecognition
 gtts
-sympy
+fpdf
 pillow
 pytesseract
-fpdf2
+sympy
 langdetect
-text2emotion
+matplotlib
