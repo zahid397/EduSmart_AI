@@ -1,12 +1,12 @@
 # ============================================
-# EduSmart AI Pro v5.6 — Final Streamlit Build
+# EduSmart AI Pro v5.7 — Final Cloud Edition ✅
 # ============================================
 import streamlit as st
 import google.generativeai as genai
 import speech_recognition as sr
 import base64, os, re, json
 from gtts import gTTS
-from fpdf2 import FPDF
+from fpdf import FPDF     # ✅ Fixed import for Streamlit Cloud
 from datetime import datetime
 from langdetect import detect
 from PIL import Image
@@ -43,7 +43,7 @@ def speak(text, lang="bn"):
             unsafe_allow_html=True,
         )
     except Exception:
-        # JS fallback if gTTS fails
+        # Browser fallback
         st.markdown(
             f"""
             <script>
@@ -68,11 +68,8 @@ def listen():
             st.info("🎧 বলুন, আমি শুনছি...")
             audio = r.listen(src, timeout=10, phrase_time_limit=10)
         return r.recognize_google(audio, language="bn-BD")
-    except sr.WaitTimeoutError:
-        st.warning("⏱️ সময় শেষ, কিছু শোনা যায়নি।")
-        return ""
     except Exception as e:
-        st.error(f"🎙️ ভয়েস ইনপুট ব্যর্থ: {e}")
+        st.warning(f"🎙️ ভয়েস ইনপুট ব্যর্থ: {e}")
         return ""
 
 # ---------- Math Solver ----------
@@ -82,54 +79,39 @@ def solve_math(expr):
         x = sp.Symbol("x")
         parsed = sp.sympify(expr)
         simplified = sp.simplify(parsed)
-
-        # Constant detection
         if parsed.is_constant():
             return f"🧮 Result: {simplified}", sp.latex(simplified), []
-
         sol = sp.solve(parsed, x)
         real_sols = [s for s in sol if s.is_real]
         latex_expr = sp.latex(parsed)
-
         if real_sols:
             msg = f"🧮 Simplified: {simplified}\n✅ Real solutions: {real_sols}"
         elif sol:
             msg = f"🧮 Simplified: {simplified}\n❌ No real solutions (complex: {sol})"
         else:
             msg = f"🧮 Simplified: {simplified}\n❌ No solution"
-
         return msg, latex_expr, real_sols
-
     except Exception as e:
         return f"⚠️ Math error: {e}", None, []
 
-# ---------- UI Setup ----------
+# ---------- UI ----------
 st.set_page_config(page_title="EduSmart AI Pro", page_icon="💡", layout="wide")
 st.markdown(
     """
     <style>
-    .stApp {background: linear-gradient(135deg,#020617,#0f172a,#1e293b);color:#f8fafc;font-family:'Poppins',sans-serif;}
+    .stApp{background:linear-gradient(135deg,#020617,#0f172a,#1e293b);color:#f8fafc;font-family:'Poppins',sans-serif;}
     .chat-bubble-user{background:#2563eb;color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;}
-    .chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;}
+    .chat-bubble-ai{background:#334155;color:#f8fafc;padding:10px 16px 16px 4px;margin:6px 0;max-width:85%;}
     h1,h3{text-align:center;color:#38bdf8;}
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 st.markdown("<h1>EduSmart AI Pro ⚡ Supreme+ Edition 📈</h1>", unsafe_allow_html=True)
 st.markdown("<h3>Learn • Solve • Speak • Visualize</h3>", unsafe_allow_html=True)
 
-# ---------- Session State ----------
-defaults = {
-    "chat": [],
-    "quiz_mode": False,
-    "quiz_text": "",
-    "total_score": 0,
-    "total_quizzes": 0,
-    "prev_pct": 0,
-}
-for k, v in defaults.items():
+# ---------- Session ----------
+for k, v in {"chat": [], "quiz_mode": False}.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -168,18 +150,17 @@ if uploaded:
         except Exception as e:
             st.error(f"Plot Error: {e}")
 
-# ---------- Chat Interface ----------
+# ---------- Chat ----------
 for role, msg in st.session_state.chat:
     css = "chat-bubble-user" if role == "user" else "chat-bubble-ai"
     st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
 
 prompt = st.chat_input("বার্তা লিখুন...")
-voice_prompt = ""
 if st.button("🎙️ ভয়েস ইনপুট দিন"):
-    voice_prompt = listen()
-    if voice_prompt:
-        st.info(f"🎙️ আপনি বলেছেন: {voice_prompt}")
-        prompt = voice_prompt
+    voice_input = listen()
+    if voice_input:
+        st.info(f"🎙️ আপনি বলেছেন: {voice_input}")
+        prompt = voice_input
 
 if prompt:
     st.session_state.chat.append(("user", prompt))
@@ -187,7 +168,6 @@ if prompt:
     if not model:
         st.warning("⚠️ API Key দিন।")
         st.stop()
-
     with st.spinner("🤖 EduSmart ভাবছে..."):
         try:
             response = model.generate_content(prompt).text
@@ -197,11 +177,11 @@ if prompt:
                 lang = detect(response)
             except:
                 lang = "bn"
-            speak(response, lang=lang)
+            speak(response, lang)
         except Exception as e:
             st.error(f"❌ ত্রুটি: {e}")
 
-# ---------- Math Solver Quick Input ----------
+# ---------- Math Input ----------
 st.markdown("---")
 expr = st.text_input("🧮 Enter math expression (optional):", placeholder="e.g., x^2 - 4")
 if expr:
@@ -214,7 +194,6 @@ if expr:
             low, high = min(real_sols) - 1, max(real_sols) + 1
             p = plot(sp.sympify(expr), (sp.Symbol("x"), low, high), show=False)
             p[0].line_color = "blue"
-            p[0].label = "Equation"
             for i, root in enumerate(real_sols):
                 vline = plot(sp.Eq(sp.Symbol("x"), root), show=False)
                 vline[0].line_color = "red"
@@ -232,7 +211,7 @@ st.markdown("---")
 if st.button("📄 Save Chat as PDF"):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Helvetica", size=12)
+    pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, "EduSmart AI Pro Chat History", ln=True, align="C")
     pdf.cell(200, 10, f"Saved: {datetime.now()}", ln=True)
     pdf.ln(10)
@@ -243,5 +222,3 @@ if st.button("📄 Save Chat as PDF"):
     pdf.output("chat.pdf")
     with open("chat.pdf", "rb") as f:
         st.download_button("⬇️ Download PDF", f, "EduSmart_Chat.pdf")
-
-st.sidebar.metric("Math Cache Hits", len(st.session_state))
