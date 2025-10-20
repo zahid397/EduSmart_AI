@@ -1,10 +1,9 @@
 streamlit
 google-generativeai
-SpeechRecognition
 gtts
 fpdf
-pillow
+langdetect
 pytesseract
 sympy
-langdetect
 matplotlib
+Pillow
