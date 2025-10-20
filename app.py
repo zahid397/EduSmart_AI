@@ -18,11 +18,8 @@ matplotlib.use("Agg")
 import platform, os
 IS_CLOUD = "streamlit" in platform.node().lower() or os.environ.get("STREAMLIT_RUNTIME", "")
 if not IS_CLOUD:
-    if st.button("🎙️ ভয়েস ইনপুট দিন"):
-        voice_input = listen()
-        if voice_input:
-            st.info(f"🎙️ আপনি বলেছেন: {voice_input}")
-            prompt = voice_input
+    if st.button("🎙️ ভয়েস ইনপুট (লোকাল)"):
+        ...
 else:
     st.warning("🎙️ ভয়েস ইনপুট Streamlit Cloud-এ কাজ করে না। লোকাল কম্পিউটারে চালিয়ে দেখুন।")
 
