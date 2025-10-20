@@ -12,16 +12,22 @@ if api_key:
     genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# ========== Voice ==========
+# ========== Voice (Autoplay Safe) ==========
 def speak(text):
+    """Generate and play Bengali voice safely"""
     tts = gTTS(text=text, lang="bn")
     tts.save("temp.mp3")
     with open("temp.mp3", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     os.remove("temp.mp3")
     st.markdown(
-        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
-        unsafe_allow_html=True
+        f"""
+        <script>
+        var audio = new Audio("data:audio/mp3;base64,{b64}");
+        document.addEventListener('click', () => {{audio.play();}}, {{once: true}});
+        </script>
+        """,
+        unsafe_allow_html=True,
     )
 
 def play_welcome_voice():
@@ -32,8 +38,13 @@ def play_welcome_voice():
         b64 = base64.b64encode(f.read()).decode()
     os.remove("welcome.mp3")
     st.markdown(
-        f"<audio autoplay><source src='data:audio/mp3;base64,{b64}' type='audio/mp3'></audio>",
-        unsafe_allow_html=True
+        f"""
+        <script>
+        var audio = new Audio("data:audio/mp3;base64,{b64}");
+        document.addEventListener('click', () => {{audio.play();}}, {{once: true}});
+        </script>
+        """,
+        unsafe_allow_html=True,
     )
 
 # ========== UI ==========
