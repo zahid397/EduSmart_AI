@@ -1,8 +1,9 @@
 streamlit
 google-generativeai
 gtts
-fpdf
-pandas
 plotly
-sympy
-Pillow
+pandas
+pillow
+pytesseract
+langdetect
+speechrecognition
