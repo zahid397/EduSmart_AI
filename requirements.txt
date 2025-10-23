@@ -2,8 +2,8 @@ streamlit
 google-generativeai
 gtts
 fpdf
-langdetect
-pytesseract
+pandas
+plotly
 sympy
-matplotlib
 Pillow
+pytesseract
