@@ -1,11 +1,10 @@
 # ======================================
-# EduSmart AI Pro v6.5 — ChatGPT-Style Dark UI ✨
+# EduSmart AI v6.7 — Clean Streamlit Edition 🔼
 # ======================================
 
 import streamlit as st
 import google.generativeai as genai
-import base64, os, json, random, platform, time
-from datetime import datetime
+import base64, os, random, time, platform
 from gtts import gTTS
 import plotly.graph_objects as go
 import pandas as pd
@@ -41,30 +40,51 @@ def speak(text):
             unsafe_allow_html=True,
         )
     except:
-        st.warning("🎧 Voice playback unavailable in cloud mode.")
+        pass
 
 # ---------- CSS ----------
 st.markdown("""
 <style>
-/* ----------- Main Background ----------- */
 .stApp {
   background-color: #0d1117;
   color: #e6edf3;
   font-family: 'Poppins', sans-serif;
 }
-
-/* ----------- Sidebar ----------- */
 [data-testid="stSidebar"] {
   background-color: #161b22;
   border-right: 1px solid #30363d;
 }
 
-/* ----------- Chat Bubbles ----------- */
+/* Header */
+.header-small {
+  text-align: center;
+  margin-top: -10px;
+  padding: 10px 0;
+}
+.header-small img {
+  width: 70px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px #38bdf8;
+  margin-bottom: 6px;
+}
+.header-small h1 {
+  font-size: 24px;
+  color: #38bdf8;
+  margin-bottom: 0;
+  font-weight: 600;
+}
+.header-small p {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* Chat */
 .chat-container {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   padding: 0 10%;
+  margin-top: 5px;
 }
 .chat-bubble-user {
   align-self: flex-end;
@@ -83,36 +103,40 @@ st.markdown("""
   max-width: 80%;
 }
 
-/* ----------- Input Box ----------- */
+/* Input */
+.stChatInput {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 20px;
+  background: #0d1117;
+  border-top: 1px solid #30363d;
+}
 .stChatInput input {
   background-color: #161b22 !important;
   color: #e6edf3 !important;
   border: 1px solid #30363d !important;
   border-radius: 8px;
+  padding: 10px;
+}
+.stChatInput button {
+  background: #2563eb !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px;
+  font-size: 18px;
+  padding: 0 12px;
+}
+.stChatInput button:hover {
+  background: #1d4ed8 !important;
 }
 
-/* ----------- Header ----------- */
-.header-box {
-  text-align: center;
-  padding: 25px;
-  background: linear-gradient(90deg,#1e3a8a,#2563eb,#38bdf8);
-  border-radius: 20px;
-  color: white;
-  box-shadow: 0 0 20px rgba(59,130,246,0.6);
-  margin-bottom: 20px;
-}
-.header-box img {
-  width: 120px;
-  border-radius: 50%;
-  box-shadow: 0 0 25px white;
-  margin-bottom: 10px;
-}
-
-/* ----------- Footer ----------- */
+/* Footer */
 .footer {
   text-align: center;
   color: #94a3b8;
-  margin-top: 40px;
+  margin-top: 80px;
   font-size: 14px;
 }
 .footer a {color:#38bdf8;text-decoration:none;font-weight:bold;}
@@ -121,9 +145,9 @@ st.markdown("""
 
 # ---------- Header ----------
 st.markdown("""
-<div class='header-box'>
+<div class='header-small'>
   <img src='https://huggingface.co/spaces/zahid397/EduSmart_AI/resolve/main/logo_.png'>
-  <h1>✨ EduSmart AI Pro ⚡ ChatGPT-Style Edition ✨</h1>
+  <h1>EduSmart AI Pro ⚡</h1>
   <p>Learn • Solve • Speak • Visualize • Grow</p>
 </div>
 """, unsafe_allow_html=True)
@@ -138,7 +162,7 @@ for role, msg in st.session_state.chat:
     st.markdown(f"<div class='{bubble}'>{msg}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-prompt = st.chat_input("বার্তা লিখুন…")
+prompt = st.chat_input("বার্তা লিখুন…", key="chat_input")
 if prompt:
     st.session_state.chat.append(("user", prompt))
     if not model:
@@ -155,7 +179,7 @@ if prompt:
 
 # ---------- Visualization ----------
 st.markdown("---")
-st.subheader("📈 AI Learning Progress (Live Visualization)")
+st.subheader("📈 EduSmart AI Progress Visualization")
 col1, col2, col3 = st.columns(3)
 speed = col1.slider("⏱ Speed (ms)", 200, 1500, 500, 100)
 color = col2.color_picker("🎨 Line Color", "#38bdf8")
@@ -178,7 +202,7 @@ for i in range(1, steps + 1):
     chart.plotly_chart(fig, use_container_width=True)
     time.sleep(speed / 1000)
 
-st.success("✅ Visualization Complete — EduSmart AI steady above 90 %!")
+st.success("✅ EduSmart AI Performance Stable Above 90%!")
 
 # ---------- Footer ----------
 st.markdown("""
