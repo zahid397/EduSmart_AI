@@ -1,5 +1,5 @@
 # ======================================
-# EduSmart AI Pro v6.4 — Streamlit Cloud Optimized ✅
+# EduSmart AI Pro v6.5 — ChatGPT-Style Dark UI ✨
 # ======================================
 
 import streamlit as st
@@ -43,64 +43,124 @@ def speak(text):
     except:
         st.warning("🎧 Voice playback unavailable in cloud mode.")
 
-# ---------- Style ----------
+# ---------- CSS ----------
 st.markdown("""
 <style>
-.stApp {background:linear-gradient(135deg,#020617,#0f172a,#1e293b);color:#f8fafc;font-family:'Poppins',sans-serif;}
-.glow-box {background:linear-gradient(90deg,#1e3a8a,#2563eb,#38bdf8);padding:25px;border-radius:20px;text-align:center;color:white;
-box-shadow:0 0 25px rgba(59,130,246,0.7);animation:glow 3s infinite alternate;}
-@keyframes glow {0% { box-shadow:0 0 15px #2563eb; }100% { box-shadow:0 0 40px #38bdf8; }}
-.footer {text-align:center;color:#94a3b8;margin-top:40px;font-size:14px;}
+/* ----------- Main Background ----------- */
+.stApp {
+  background-color: #0d1117;
+  color: #e6edf3;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ----------- Sidebar ----------- */
+[data-testid="stSidebar"] {
+  background-color: #161b22;
+  border-right: 1px solid #30363d;
+}
+
+/* ----------- Chat Bubbles ----------- */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0 10%;
+}
+.chat-bubble-user {
+  align-self: flex-end;
+  background-color: #238636;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 16px 16px 4px 16px;
+  max-width: 80%;
+}
+.chat-bubble-ai {
+  align-self: flex-start;
+  background-color: #30363d;
+  color: #e6edf3;
+  padding: 10px 15px;
+  border-radius: 16px 16px 16px 4px;
+  max-width: 80%;
+}
+
+/* ----------- Input Box ----------- */
+.stChatInput input {
+  background-color: #161b22 !important;
+  color: #e6edf3 !important;
+  border: 1px solid #30363d !important;
+  border-radius: 8px;
+}
+
+/* ----------- Header ----------- */
+.header-box {
+  text-align: center;
+  padding: 25px;
+  background: linear-gradient(90deg,#1e3a8a,#2563eb,#38bdf8);
+  border-radius: 20px;
+  color: white;
+  box-shadow: 0 0 20px rgba(59,130,246,0.6);
+  margin-bottom: 20px;
+}
+.header-box img {
+  width: 120px;
+  border-radius: 50%;
+  box-shadow: 0 0 25px white;
+  margin-bottom: 10px;
+}
+
+/* ----------- Footer ----------- */
+.footer {
+  text-align: center;
+  color: #94a3b8;
+  margin-top: 40px;
+  font-size: 14px;
+}
 .footer a {color:#38bdf8;text-decoration:none;font-weight:bold;}
 </style>
 """, unsafe_allow_html=True)
 
 # ---------- Header ----------
-st.markdown(f"""
-<div class='glow-box'>
-  <img src='https://huggingface.co/spaces/zahid397/EduSmart_AI/resolve/main/logo_.png'
-       style='width:140px;border-radius:50%;box-shadow:0 0 25px white;margin-bottom:10px;'>
-  <h1>✨ EduSmart AI Pro ⚡ Streamlit Edition ✨</h1>
+st.markdown("""
+<div class='header-box'>
+  <img src='https://huggingface.co/spaces/zahid397/EduSmart_AI/resolve/main/logo_.png'>
+  <h1>✨ EduSmart AI Pro ⚡ ChatGPT-Style Edition ✨</h1>
   <p>Learn • Solve • Speak • Visualize • Grow</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------- Chat ----------
-for k in ["chat"]:
-    if k not in st.session_state:
-        st.session_state[k] = []
+if "chat" not in st.session_state:
+    st.session_state.chat = []
 
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for role, msg in st.session_state.chat:
-    if role == "user":
-        st.markdown(f"<div style='background:#2563eb;color:#fff;padding:10px 15px;border-radius:16px 16px 4px 16px;margin:6px 0;max-width:85%;'>{msg}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div style='background:#334155;color:#f8fafc;padding:10px 15px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;'>{msg}</div>", unsafe_allow_html=True)
+    bubble = "chat-bubble-user" if role == "user" else "chat-bubble-ai"
+    st.markdown(f"<div class='{bubble}'>{msg}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-prompt = st.chat_input("বার্তা লিখুন...")
+prompt = st.chat_input("বার্তা লিখুন…")
 if prompt:
     st.session_state.chat.append(("user", prompt))
     if not model:
         st.warning("⚠️ API Key দিন।")
     else:
-        with st.spinner("🤖 EduSmart ভাবছে..."):
+        with st.spinner("🤖 EduSmart ভাবছে…"):
             try:
                 res = model.generate_content(prompt).text
                 st.session_state.chat.append(("ai", res))
-                st.markdown(f"<div style='background:#334155;color:#f8fafc;padding:10px 15px;border-radius:16px 16px 16px 4px;margin:6px 0;max-width:85%;'>{res}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble-ai'>{res}</div>", unsafe_allow_html=True)
                 speak(res)
             except Exception as e:
                 st.error(f"❌ ত্রুটি: {e}")
 
-# ---------- Control Panel ----------
+# ---------- Visualization ----------
 st.markdown("---")
-st.subheader("🎛️ Live Dashboard Control")
+st.subheader("📈 AI Learning Progress (Live Visualization)")
 col1, col2, col3 = st.columns(3)
-speed = col1.slider("⏱ Animation Delay (ms)", 200, 1500, 500, 100)
-color = col2.color_picker("🎨 Graph Color", "#38bdf8")
-steps = col3.slider("📊 Total Steps", 5, 40, 20)
+speed = col1.slider("⏱ Speed (ms)", 200, 1500, 500, 100)
+color = col2.color_picker("🎨 Line Color", "#38bdf8")
+steps = col3.slider("📊 Steps", 5, 30, 15)
 
-# ---------- Live Chart ----------
-st.subheader("📈 AI Accuracy Visualization (Streamlit Mode)")
 progress_df = pd.DataFrame({"Step": [], "Accuracy": []})
 chart = st.empty()
 
@@ -113,16 +173,12 @@ for i in range(1, steps + 1):
         mode="lines+markers", line=dict(color=color, width=3),
         marker=dict(size=8)
     ))
-    fig.update_layout(
-        template="plotly_dark",
-        title="AI Learning Progress (Live)",
-        xaxis_title="Step", yaxis_title="Accuracy (%)",
-        yaxis=dict(range=[60, 100])
-    )
+    fig.update_layout(template="plotly_dark", xaxis_title="Step",
+                      yaxis_title="Accuracy (%)", yaxis=dict(range=[60, 100]))
     chart.plotly_chart(fig, use_container_width=True)
-    time.sleep(speed / 1000)  # ✅ FIXED delay
+    time.sleep(speed / 1000)
 
-st.success("✅ Visualization Complete — EduSmart AI Steady Above 90%!")
+st.success("✅ Visualization Complete — EduSmart AI steady above 90 %!")
 
 # ---------- Footer ----------
 st.markdown("""
