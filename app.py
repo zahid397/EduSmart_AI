@@ -1,10 +1,10 @@
 # ======================================
-# EduSmart AI Pro v6.3 — Streamlit Optimized Live Chart Edition ✅
+# EduSmart AI Pro v6.4 — Streamlit Cloud Optimized ✅
 # ======================================
 
 import streamlit as st
 import google.generativeai as genai
-import base64, os, json, random, platform
+import base64, os, json, random, platform, time
 from datetime import datetime
 from gtts import gTTS
 import plotly.graph_objects as go
@@ -95,7 +95,7 @@ if prompt:
 st.markdown("---")
 st.subheader("🎛️ Live Dashboard Control")
 col1, col2, col3 = st.columns(3)
-speed = col1.slider("⏱ Animation Delay (ms)", 100, 1500, 400, 100)
+speed = col1.slider("⏱ Animation Delay (ms)", 200, 1500, 500, 100)
 color = col2.color_picker("🎨 Graph Color", "#38bdf8")
 steps = col3.slider("📊 Total Steps", 5, 40, 20)
 
@@ -115,12 +115,12 @@ for i in range(1, steps + 1):
     ))
     fig.update_layout(
         template="plotly_dark",
-        title="AI Learning Progress Live Update",
+        title="AI Learning Progress (Live)",
         xaxis_title="Step", yaxis_title="Accuracy (%)",
         yaxis=dict(range=[60, 100])
     )
     chart.plotly_chart(fig, use_container_width=True)
-    st.sleep(speed / 1000)
+    time.sleep(speed / 1000)  # ✅ FIXED delay
 
 st.success("✅ Visualization Complete — EduSmart AI Steady Above 90%!")
 
